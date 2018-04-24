@@ -29,6 +29,7 @@ namespace SettingCNN
         -2, -2, 1
     };
     int** InputDims;
+    bool use_gpu = true;
 }
 
 #endif

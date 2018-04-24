@@ -14,6 +14,7 @@
 #include <sys/time.h>
 #include <string>
 #include <vector>
+#include <dlfcn.h>
 
 using namespace Halide;
 using namespace Halide::Tools;
@@ -24,6 +25,7 @@ void computeInputDims(int w, int h, int c);
 void computeDimAt(int i, int w, int h, int c);
 
 int main(int argc, char **argv) {
+    dlopen("/System/Library/Frameworks/Metal.framework/Versions/Current/Metal", RTLD_LAZY);
 
     if (argc != 2) {
         printf("ERROR::please enter the image path.\n");
@@ -33,6 +35,7 @@ int main(int argc, char **argv) {
     // This program defines a single-stage imaging pipeline that
     // brightens an image.
     struct timespec start, end;
+    uint64_t delta_ms = 0;
 
     InputDims = (int **) calloc(17, sizeof(int *));
     for (int i = 0; i < 17; i++) {
@@ -72,13 +75,22 @@ int main(int argc, char **argv) {
                                         "conv_1", InputDims[0][0],
                                         input_layer->getDimAt(0)
                                         , 9, 1, 4);
+
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
     Buffer<float> pre_1_1 = conv_1->pre_norm.realize(InputDims[1][0], 
                                 InputDims[1][1], InputDims[1][2]);
+
+    if (SettingCNN::use_gpu) pre_1_1.copy_to_host();
+
     conv_1->batchNorm(pre_1_1, input_layer->getScaleAt(0),
                                 input_layer->getShiftAt(0));
     conv_1->addReLU();
     Buffer<float> ret_1_1 = conv_1->conv.realize(InputDims[1][0], 
                                 InputDims[1][1], InputDims[1][2]);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+    delta_ms += (end.tv_sec-start.tv_sec) * 1000 
+                        + (end.tv_nsec-start.tv_nsec) / 1000000;
+
     printf("No. %d conv layer computation done!\n", 1);
 
     ConvLayer* conv_2 = new ConvLayer(ret_1_1, 
@@ -87,8 +99,12 @@ int main(int argc, char **argv) {
                                         "conv_2", InputDims[1][0],
                                         input_layer->getDimAt(1)
                                         , 3, 2, 1);
+
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
     Buffer<float> pre_1_2 = conv_2->pre_norm.realize(InputDims[2][0], 
                                 InputDims[2][1], InputDims[2][2]);
+
+    if (SettingCNN::use_gpu) pre_1_2.copy_to_host();
 
     conv_2->batchNorm(pre_1_2, input_layer->getScaleAt(1),
                                 input_layer->getShiftAt(1));
@@ -96,6 +112,7 @@ int main(int argc, char **argv) {
 
     Buffer<float> ret_1_2 = conv_2->conv.realize(InputDims[2][0], 
                                 InputDims[2][1], InputDims[2][2]);
+    
     printf("No. %d conv layer computation done!\n", 2);
 
     ConvLayer* conv_3 = new ConvLayer(ret_1_2, 
@@ -104,17 +121,21 @@ int main(int argc, char **argv) {
                                         "conv_3", InputDims[2][0],
                                         input_layer->getDimAt(2)
                                         , 3, 2, 1);
+    
     Buffer<float> pre_1_3 = conv_3->pre_norm.realize(InputDims[3][0], 
                                 InputDims[3][1], InputDims[3][2]);
-
+    if (SettingCNN::use_gpu)
+        pre_1_3.copy_to_host();
     conv_3->batchNorm(pre_1_3, input_layer->getScaleAt(2),
                                 input_layer->getShiftAt(2));
 
     conv_3->addReLU();
     Buffer<float> ret_1_3 = conv_3->conv.realize(InputDims[3][0], 
                                 InputDims[3][1], InputDims[3][2]);
+    
     printf("No. %d conv layer computation done!\n", 3);
 
+    
     ResiLayer* resi_1 = new ResiLayer(ret_1_3, input_layer, 3, "resi_1", 
                     input_layer->getDimAt(3), InputDims[3][0], 3, 1, 1);
 
@@ -161,28 +182,34 @@ int main(int argc, char **argv) {
 
     Buffer<float> pre_3_1 = trans_1->pre_norm.realize(InputDims[14][0], 
                                 InputDims[14][1], InputDims[14][2]);
+
+    if (SettingCNN::use_gpu) pre_3_1.copy_to_host();
+
     trans_1->batchNorm(pre_3_1, input_layer->getScaleAt(13),
                                 input_layer->getShiftAt(13));
     trans_1->addReLU();
 
     Buffer<float> ret_3_1 = trans_1->trans.realize(InputDims[14][0], 
                                 InputDims[14][1], InputDims[14][2]);
-
+    
     printf("No. %d trans layer computation done!\n", 1);
 
     TransLayer* trans_2 = new TransLayer(ret_3_1, input_layer->getWeightAt(14), 
                 input_layer->getBiasAt(14),  "trans_2", input_layer->getDimAt(14), 
                 InputDims[14][0], 3, 2, 1, true);
-
+    
     Buffer<float> pre_3_2 = trans_2->pre_norm.realize(InputDims[15][0], 
                                 InputDims[15][1], InputDims[15][2]);
+
+    if (SettingCNN::use_gpu) pre_3_2.copy_to_host();
+
     trans_2->batchNorm(pre_3_2, input_layer->getScaleAt(14),
                                 input_layer->getShiftAt(14));
     trans_2->addReLU();
 
     Buffer<float> ret_3_2 = trans_2->trans.realize(InputDims[15][0], 
                                 InputDims[15][1], InputDims[15][2]);
-
+    
     printf("No. %d trans layer computation done!\n", 2);
 
     ConvLayer* final = new ConvLayer(ret_3_2, input_layer->getWeightAt(15),
@@ -195,13 +222,13 @@ int main(int argc, char **argv) {
                                 InputDims[16][1], InputDims[16][2]);
     final->batchNorm(pre_result, input_layer->getScaleAt(15),
                                 input_layer->getShiftAt(15));
-
+    clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+    delta_ms += (end.tv_sec-start.tv_sec) * 1000 
+                        + (end.tv_nsec-start.tv_nsec) / 1000000;
 
     printf("Final layer computation done!\n");
 
-    clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-    uint64_t delta_ms = (end.tv_sec-start.tv_sec) * 1000 
-                        + (end.tv_nsec-start.tv_nsec) / 1000000;
+    
     printf("Total run time : %llu ms.\n", delta_ms);
 
     Func recast;
