@@ -1,3 +1,6 @@
 data/*
 image/*
 __pycache__/*
+*.png
+main
+*.dSYM

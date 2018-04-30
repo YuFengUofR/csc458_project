@@ -41,12 +41,13 @@ public:
         fid.close();
         int index;
         Buffer<float> kernel(f_size, f_size, f_c, f_num);
-        for (int n=0; n<f_num; n++) {
-            for (int k=0; k<f_c; k++) {
-                for (int j=0; j<f_size; j++) {
-                    for (int i=0; i<f_size; i++) {
-                        index = i + j*f_size + k*f_size*f_size
-                                    + n*f_size*f_size*f_c; 
+            
+        for (int i=0; i<f_size; i++) {
+            for (int j=0; j<f_size; j++) {
+                for (int k=0; k<f_c; k++) {
+                    for (int n=0; n<f_num; n++) {
+                        index = n + k*f_num + j*f_num*f_c
+                                    + i*f_num*f_c*f_size; 
                         kernel(i, j, k, n) = nums.at(index);
                     }
                 }

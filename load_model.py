@@ -16,7 +16,7 @@ def get_img(src, img_size=False):
    return img
 
 
-file_name = 'rain_princess.ckpt'
+file_name = '../rain_princess.ckpt'
 img_path = 'images/chicago.jpg'
 FLAGS = None
 
@@ -31,7 +31,9 @@ with tf.Session() as sess:
 
     for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=''):
         print(i)
+        
         array = i.eval(sess)
+        print(i.shape)
         arr = array.flatten()
         # print(arr)
         np.savetxt('data/'+i.name+'.out', arr, delimiter='\n')

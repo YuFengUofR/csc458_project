@@ -67,7 +67,9 @@ public:
                     .update()
                     .unroll(filter.x)
                     .unroll(filter.y)
-                    .fuse(y, f, tile_index);
+                    .fuse(y, f, tile_index)
+                    // .parallel(tile_index)
+                    ;
             pre_norm
                     .update()       
                     .gpu_blocks(tile_index)

@@ -11,6 +11,7 @@
 #include "input_layer.h"
 #include "resi_layer.h"
 #include "setting.h"
+#include "probe.h"
 #include <sys/time.h>
 #include <string>
 #include <vector>
@@ -68,6 +69,9 @@ int main(int argc, char **argv) {
     printf("loading weights and biases done!\n");
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+    Probe* probe = new Probe();
+    probe->init();
+    probe->start();
 
     ConvLayer* conv_1 = new ConvLayer(image, 
                                         input_layer->getWeightAt(0),
@@ -227,6 +231,8 @@ int main(int argc, char **argv) {
                         + (end.tv_nsec-start.tv_nsec) / 1000000;
 
     printf("Final layer computation done!\n");
+    probe->stop();
+    probe->print();
 
     
     printf("Total run time : %llu ms.\n", delta_ms);

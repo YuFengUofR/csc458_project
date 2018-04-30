@@ -53,7 +53,8 @@ public:
                     .split(f, f, f_i, 8);
             pre_norm
                     .update()
-                    .fuse(y, f, tile_index);
+                    .fuse(y, f, tile_index)
+                    .parallel(tile_index);
             pre_norm
                     .update()       
                     .gpu_blocks(tile_index)
@@ -110,7 +111,9 @@ public:
                     .update()
                     .unroll(filter.x)
                     .unroll(filter.y)
-                    .fuse(y, f, tile_index);
+                    .fuse(y, f, tile_index)
+                    // .parallel(tile_index)
+                    ;
             pre_norm
                     .update()       
                     .gpu_blocks(tile_index)
